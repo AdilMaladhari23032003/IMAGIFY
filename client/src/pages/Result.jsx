@@ -28,10 +28,9 @@ const Result = () => {
 
   return (
     <motion.form onSubmit={onSubmitHandler} className='flex flex-col min-h-[90vh] justify-center items-center'
-      initial={{ opacity: 0.2, y: 100 }}
-      transition={{ duration: 1 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
     >
 
       <div>

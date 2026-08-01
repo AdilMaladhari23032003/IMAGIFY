@@ -97,10 +97,9 @@ const MyHistory = () => {
   return (
     <motion.div 
       className='min-h-[80vh] pt-10 pb-16 px-4 max-w-6xl mx-auto'
-      initial={{ opacity: 0.2, y: 50 }}
-      transition={{ duration: 0.8 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
     >
       <div className='text-center mb-8'>
         <button className='border border-gray-400 px-8 py-2 rounded-full text-sm font-medium mb-4 text-gray-700 bg-white shadow-sm'>
