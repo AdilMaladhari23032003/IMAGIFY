@@ -34,7 +34,7 @@ const MyHistory = () => {
       if (imageRes.data.success) {
         const imgs = imageRes.data.images || []
         setImages(imgs)
-        localStorage.setItem(CACHE_KEY_IMAGES, JSON.stringify(imgs))
+        try { localStorage.setItem(CACHE_KEY_IMAGES, JSON.stringify(imgs)) } catch(e) {}
       } else {
         toast.error(imageRes.data.message)
       }
@@ -42,7 +42,7 @@ const MyHistory = () => {
       if (transRes.data.success) {
         const trans = transRes.data.transactions || []
         setTransactions(trans)
-        localStorage.setItem(CACHE_KEY_TRANS, JSON.stringify(trans))
+        try { localStorage.setItem(CACHE_KEY_TRANS, JSON.stringify(trans)) } catch(e) {}
       } else {
         toast.error(transRes.data.message)
       }
@@ -64,7 +64,7 @@ const MyHistory = () => {
       // If we have cached data, fetch silently in background
       const hasCachedData =
         localStorage.getItem(CACHE_KEY_IMAGES) || localStorage.getItem(CACHE_KEY_TRANS)
-      fetchHistory(!hasCachedData)  // silent=true if cache exists
+      fetchHistory(Boolean(hasCachedData))  // silent=true if cache exists
     }
   }, [token])
 
@@ -76,7 +76,7 @@ const MyHistory = () => {
     })
   }
 
-  const purchasedTransactions = transactions.filter(item => item.payment === true)
+  const displayTransactions = transactions
 
   return (
     <motion.div
@@ -118,11 +118,11 @@ const MyHistory = () => {
                 : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
             }`}
           >
-            💳 Purchased Credits
+            💳 Credit Transactions
             <span className={`text-xs px-2 py-0.5 rounded-full ${
               activeTab === 'credits' ? 'bg-zinc-700 text-white' : 'bg-gray-100 text-gray-600'
             }`}>
-              {purchasedTransactions.length}
+              {displayTransactions.length}
             </span>
           </button>
         </div>
@@ -178,10 +178,10 @@ const MyHistory = () => {
             </section>
           )}
 
-          {/* TAB 2: Purchased Credits */}
+          {/* TAB 2: Credit Transactions */}
           {activeTab === 'credits' && (
             <section>
-              {purchasedTransactions.length === 0 ? (
+              {displayTransactions.length === 0 ? (
                 <div className='text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300'>
                   <p className='text-gray-500 font-medium'>No history found yet</p>
                   <p className='text-xs text-gray-400 mt-1'>Purchased plan transactions will appear here.</p>
@@ -199,14 +199,14 @@ const MyHistory = () => {
                       </tr>
                     </thead>
                     <tbody className='divide-y divide-gray-100'>
-                      {purchasedTransactions.map((item, index) => (
+                      {displayTransactions.map((item, index) => (
                         <tr key={item._id || index} className='hover:bg-gray-50 transition-colors'>
                           <td className='py-3.5 px-4 font-medium text-gray-900'>{item.plan} Plan</td>
                           <td className='py-3.5 px-4 font-semibold text-blue-600'>+{item.credits}</td>
                           <td className='py-3.5 px-4 font-medium text-gray-800'>₹{item.amount}</td>
                           <td className='py-3.5 px-4'>
-                            <span className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800'>
-                              Paid
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.payment ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              {item.payment ? 'Paid' : 'Pending'}
                             </span>
                           </td>
                           <td className='py-3.5 px-4 text-gray-500 whitespace-nowrap'>{formatDate(item.date)}</td>
