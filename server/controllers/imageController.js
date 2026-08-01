@@ -72,7 +72,7 @@ export const generateImage = async (req, res) => {
 export const getUserImages = async (req, res) => {
   try {
     const { userId } = req.body
-    const images = await imageModel.find({ userId }).sort({ date: -1 })
+    const images = await imageModel.find({ userId }).sort({ date: -1 }).lean()
     res.json({ success: true, images })
   } catch (error) {
     console.log(error.message)

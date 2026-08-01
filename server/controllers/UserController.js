@@ -473,7 +473,7 @@ const resetPassword = async (req, res) => {
 const userTransactions = async (req, res) => {
     try {
         const { userId } = req.body
-        const transactions = await transactionModel.find({ userId }).sort({ date: -1 })
+        const transactions = await transactionModel.find({ userId }).sort({ date: -1 }).lean()
         res.json({ success: true, transactions })
     } catch (error) {
         console.log(error.message)
