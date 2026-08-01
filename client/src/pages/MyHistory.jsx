@@ -4,17 +4,27 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import { motion } from 'framer-motion'
 
+const CACHE_KEY_IMAGES = 'history_images_cache'
+const CACHE_KEY_TRANS  = 'history_trans_cache'
+
 const MyHistory = () => {
   const { backendUrl, token } = useContext(AppContext)
 
-  const [images, setImages] = useState([])
-  const [transactions, setTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
+  // Load from cache immediately so page renders instantly
+  const [images, setImages] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY_IMAGES)) || [] } catch { return [] }
+  })
+  const [transactions, setTransactions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY_TRANS)) || [] } catch { return [] }
+  })
+  const [loading, setLoading] = useState(false)   // no spinner on first load
+  const [refreshing, setRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState('images')
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
+      else setRefreshing(true)
 
       const [imageRes, transRes] = await Promise.all([
         axios.get(backendUrl + '/api/image/history', { headers: { token } }),
@@ -22,30 +32,39 @@ const MyHistory = () => {
       ])
 
       if (imageRes.data.success) {
-        setImages(imageRes.data.images || [])
+        const imgs = imageRes.data.images || []
+        setImages(imgs)
+        localStorage.setItem(CACHE_KEY_IMAGES, JSON.stringify(imgs))
       } else {
         toast.error(imageRes.data.message)
       }
 
       if (transRes.data.success) {
-        setTransactions(transRes.data.transactions || [])
+        const trans = transRes.data.transactions || []
+        setTransactions(trans)
+        localStorage.setItem(CACHE_KEY_TRANS, JSON.stringify(trans))
       } else {
         toast.error(transRes.data.message)
       }
 
     } catch (error) {
       console.log(error)
-      toast.error(error.message)
+      // Only show error if there's no cached data to display
+      if (images.length === 0 && transactions.length === 0) {
+        toast.error('Could not load history. Please try again.')
+      }
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
   useEffect(() => {
     if (token) {
-      fetchHistory()
-    } else {
-      setLoading(false)
+      // If we have cached data, fetch silently in background
+      const hasCachedData =
+        localStorage.getItem(CACHE_KEY_IMAGES) || localStorage.getItem(CACHE_KEY_TRANS)
+      fetchHistory(!hasCachedData)  // silent=true if cache exists
     }
   }, [token])
 
@@ -109,9 +128,17 @@ const MyHistory = () => {
         </div>
       </div>
 
+      {/* Subtle refreshing indicator — only shows when silently syncing in background */}
+      {refreshing && (
+        <div className='flex justify-center items-center gap-2 py-2 mb-2'>
+          <div className='w-2 h-2 bg-blue-400 rounded-full animate-pulse'></div>
+          <span className='text-xs text-gray-400'>Syncing latest data…</span>
+        </div>
+      )}
+
       {loading ? (
         <div className='flex justify-center items-center py-20'>
-          <div className='w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin'></div>
+          <div className='w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin'></div>
         </div>
       ) : (
         <div>
