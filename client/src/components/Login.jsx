@@ -13,17 +13,22 @@ const Login = () => {
     const [password, setPassword] = useState('')
     const [otp, setOtp] = useState('')
     const [newPassword, setNewPassword] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
 
     const { backendUrl, setShowLogin, setToken, setUser } = useContext(AppContext)
 
     const onSubmitHandler = async (e) => {
         e.preventDefault()
 
+        if (loading) return
+        setLoading(true)
+
         try {
 
             if (state === 'Login') {
 
-                const { data } = await axios.post(backendUrl + '/api/user/login', { email, password })
+                const { data } = await axios.post(backendUrl + '/api/user/login', { email, password }, { timeout: 15000 })
 
                 if (data.success) {
                     setToken(data.token)
@@ -36,7 +41,7 @@ const Login = () => {
 
             } else if (state === 'Sign Up') {
 
-                const { data } = await axios.post(backendUrl + '/api/user/register', { name, email, password })
+                const { data } = await axios.post(backendUrl + '/api/user/register', { name, email, password }, { timeout: 15000 })
 
                 if (data.success) {
                     setToken(data.token)
@@ -49,7 +54,7 @@ const Login = () => {
 
             } else if (state === 'Forgot Password') {
 
-                const { data } = await axios.post(backendUrl + '/api/user/send-reset-otp', { email })
+                const { data } = await axios.post(backendUrl + '/api/user/send-reset-otp', { email }, { timeout: 15000 })
 
                 if (data.success) {
                     toast.success(data.message)
@@ -60,7 +65,7 @@ const Login = () => {
 
             } else if (state === 'Reset Password') {
 
-                const { data } = await axios.post(backendUrl + '/api/user/reset-password', { email, otp, newPassword })
+                const { data } = await axios.post(backendUrl + '/api/user/reset-password', { email, otp, newPassword }, { timeout: 15000 })
 
                 if (data.success) {
                     toast.success(data.message)
@@ -73,7 +78,15 @@ const Login = () => {
             }
 
         } catch (error) {
-            toast.error(error.message)
+            if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+                toast.error('Request timed out. Please check your connection and try again.')
+            } else if (error.code === 'ERR_NETWORK' || !error.response) {
+                toast.error('Network error. Please check your internet connection.')
+            } else {
+                toast.error(error.response?.data?.message || error.message || 'Something went wrong.')
+            }
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -119,7 +132,10 @@ const Login = () => {
 
                 {(state === 'Login' || state === 'Sign Up') && <div className='border px-6 py-2 flex items-center gap-2 rounded-full mt-4'>
                     <img src={assets.lock_icon} alt="" />
-                    <input onChange={e => setPassword(e.target.value)} value={password} className='outline-none text-sm w-full' type="password" placeholder='Password' required />
+                    <input onChange={e => setPassword(e.target.value)} value={password} className='outline-none text-sm w-full' type={showPassword ? "text" : "password"} placeholder='Password' required />
+                    <span onClick={() => setShowPassword(!showPassword)} className='cursor-pointer text-xs text-slate-400 hover:text-slate-600 select-none'>
+                        {showPassword ? 'Hide' : 'Show'}
+                    </span>
                 </div>}
 
                 {state === 'Reset Password' && (
@@ -130,7 +146,10 @@ const Login = () => {
                         </div>
                         <div className='border px-6 py-2 flex items-center gap-2 rounded-full mt-4'>
                             <img src={assets.lock_icon} alt="" />
-                            <input onChange={e => setNewPassword(e.target.value)} value={newPassword} className='outline-none text-sm w-full' type="password" placeholder='New Password' required />
+                            <input onChange={e => setNewPassword(e.target.value)} value={newPassword} className='outline-none text-sm w-full' type={showPassword ? "text" : "password"} placeholder='New Password' required />
+                            <span onClick={() => setShowPassword(!showPassword)} className='cursor-pointer text-xs text-slate-400 hover:text-slate-600 select-none'>
+                                {showPassword ? 'Hide' : 'Show'}
+                            </span>
                         </div>
                     </>
                 )}
@@ -140,11 +159,18 @@ const Login = () => {
                 {state === 'Forgot Password' && <p onClick={() => setState('Login')} className='text-sm text-blue-600 my-4 cursor-pointer'>Back to Login</p>}
                 {state === 'Reset Password' && <p onClick={() => setState('Forgot Password')} className='text-sm text-blue-600 my-4 cursor-pointer'>Resend OTP</p>}
 
-                <button className='bg-blue-600 w-full text-white py-2 rounded-full mt-4'>
-                    {state === 'Login' && 'Login'}
-                    {state === 'Sign Up' && 'Create Account'}
-                    {state === 'Forgot Password' && 'Send OTP'}
-                    {state === 'Reset Password' && 'Reset Password'}
+                <button
+                    disabled={loading}
+                    className={`w-full text-white py-2 rounded-full mt-4 transition-opacity ${loading ? 'bg-blue-400 opacity-70 cursor-not-allowed' : 'bg-blue-600'}`}
+                >
+                    {loading ? 'Please wait...' : (
+                        <>
+                            {state === 'Login' && 'Login'}
+                            {state === 'Sign Up' && 'Create Account'}
+                            {state === 'Forgot Password' && 'Send OTP'}
+                            {state === 'Reset Password' && 'Reset Password'}
+                        </>
+                    )}
                 </button>
 
                 {state === "Login" && <p className='mt-5 text-center'>Don't have an account? <span onClick={() => setState('Sign Up')} className='text-blue-600 cursor-pointer'>Sign up</span></p>}

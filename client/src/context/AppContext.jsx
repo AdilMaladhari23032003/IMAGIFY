@@ -11,7 +11,7 @@ const AppContextProvider = (props) => {
     const [token, setToken] = useState(localStorage.getItem('token'))
     const [user, setUser] = useState(null)
 
-    const [credit, setCredit] = useState(false)
+    const [credit, setCredit] = useState(0)
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL
     const navigate = useNavigate()
@@ -19,15 +19,23 @@ const AppContextProvider = (props) => {
     const loadCreditsData = async () => {
         try {
 
-            const { data } = await axios.get(backendUrl + '/api/user/credits', { headers: { token } })
+            const { data } = await axios.get(backendUrl + '/api/user/credits', { headers: { token }, timeout: 15000 })
             if (data.success) {
                 setCredit(data.credits)
                 setUser(data.user)
+            } else {
+                // Token expired or invalid - logout silently
+                if (data.message?.toLowerCase().includes('authorized') || data.message?.toLowerCase().includes('login')) {
+                    logout()
+                }
             }
 
         } catch (error) {
             console.log(error)
-            toast.error(error.message)
+            // Only show toast for non-network errors to avoid spamming user
+            if (error.code !== 'ERR_NETWORK' && error.code !== 'ECONNABORTED') {
+                toast.error(error.message)
+            }
         }
     }
 

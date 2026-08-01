@@ -17,6 +17,12 @@ const registerUser = async (req, res) => {
             return res.json({ success: false, message: 'Missing Details' })
         }
 
+        // Check if user already exists
+        const existingUser = await userModel.findOne({ email })
+        if (existingUser) {
+            return res.json({ success: false, message: 'Email already registered. Please login.' })
+        }
+
         // hashing user password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt)
@@ -30,7 +36,7 @@ const registerUser = async (req, res) => {
         const newUser = new userModel(userData)
         const user = await newUser.save()
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' })
 
         res.json({ success: true, token, user: { name: user.name } })
 
@@ -45,6 +51,11 @@ const loginUser = async (req, res) => {
 
     try {
         const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.json({ success: false, message: 'Missing Details' })
+        }
+
         const user = await userModel.findOne({ email })
 
         if (!user) {
@@ -54,7 +65,7 @@ const loginUser = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password)
 
         if (isMatch) {
-            const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET)
+            const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' })
             res.json({ success: true, token, user: { name: user.name } })
         }
         else {
@@ -74,6 +85,11 @@ const userCredits = async (req, res) => {
 
         // Fetching userdata using userId
         const user = await userModel.findById(userId)
+
+        if (!user) {
+            return res.json({ success: false, message: 'User not found' })
+        }
+
         res.json({ success: true, credits: user.creditBalance, user: { name: user.name } })
 
     } catch (error) {
