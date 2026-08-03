@@ -5,6 +5,11 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import stripe from "stripe";
 import nodemailer from 'nodemailer'
+import dns from 'dns'
+
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 // API to register user
 const registerUser = async (req, res) => {
@@ -372,63 +377,72 @@ const sendResetOtp = async (req, res) => {
             });
         }
 
-        try {
-            const transporter = nodemailer.createTransport(
-                process.env.SMTP_HOST
-                    ? {
-                        host: process.env.SMTP_HOST,
-                        port: Number(process.env.SMTP_PORT) || 587,
-                        secure: process.env.SMTP_SECURE === 'true',
-                        family: 4,
-                        auth: {
-                            user: smtpUser,
-                            pass: smtpPass
-                        },
-                        connectionTimeout: 15000,
-                        greetingTimeout: 15000,
-                        socketTimeout: 20000
-                      }
-                    : {
-                        service: 'gmail',
-                        family: 4,
-                        auth: {
-                            user: smtpUser,
-                            pass: smtpPass
-                        },
-                        connectionTimeout: 15000,
-                        greetingTimeout: 15000,
-                        socketTimeout: 20000
-                      }
-            );
-
-            const mailOptions = {
-                from: `"IMAGIFY Support" <${smtpUser}>`,
-                to: email,
-                subject: 'Password Reset OTP - IMAGIFY',
-                text: `Your OTP for password reset is ${otp}. This OTP is valid for 5 minutes.`,
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-                        <h2 style="color: #2563eb; text-align: center;">IMAGIFY Password Reset</h2>
-                        <p>Hello ${user.name},</p>
-                        <p>We received a request to reset your password. Use the following One-Time Password (OTP) to complete the process. This OTP is valid for <strong>5 minutes</strong>.</p>
-                        <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #1f2937; border-radius: 5px; margin: 20px 0;">
-                            ${otp}
-                        </div>
-                        <p>If you did not request this, please ignore this email.</p>
-                        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-                        <p style="font-size: 12px; color: #6b7280; text-align: center;">This is an automated email. Please do not reply.</p>
+        const mailOptions = {
+            from: `"IMAGIFY Support" <${smtpUser}>`,
+            to: email,
+            subject: 'Password Reset OTP - IMAGIFY',
+            text: `Your OTP for password reset is ${otp}. This OTP is valid for 5 minutes.`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+                    <h2 style="color: #2563eb; text-align: center;">IMAGIFY Password Reset</h2>
+                    <p>Hello ${user.name},</p>
+                    <p>We received a request to reset your password. Use the following One-Time Password (OTP) to complete the process. This OTP is valid for <strong>5 minutes</strong>.</p>
+                    <div style="background-color: #f3f4f6; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #1f2937; border-radius: 5px; margin: 20px 0;">
+                        ${otp}
                     </div>
-                `
-            };
+                    <p>If you did not request this, please ignore this email.</p>
+                    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+                    <p style="font-size: 12px; color: #6b7280; text-align: center;">This is an automated email. Please do not reply.</p>
+                </div>
+            `
+        };
 
-            await transporter.sendMail(mailOptions);
-            return res.json({ success: true, message: 'OTP sent to your email! (Please check your Inbox & Spam folder)' });
-        } catch (mailError) {
-            console.error("Mail send error:", mailError.message);
-            return res.json({ 
-                success: false, 
-                message: `Failed to send OTP email (${mailError.message}). Please try again.` 
+        // Attempt 1: Port 465 SSL (Direct Secure Connection, fastest & bypasses ISP port 587 filters)
+        try {
+            const primaryTransporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: 465,
+                secure: true,
+                family: 4,
+                auth: {
+                    user: smtpUser,
+                    pass: smtpPass
+                },
+                connectionTimeout: 10000,
+                greetingTimeout: 10000,
+                socketTimeout: 15000
             });
+
+            await primaryTransporter.sendMail(mailOptions);
+            return res.json({ success: true, message: 'OTP sent to your email! (Please check your Inbox & Spam folder)' });
+        } catch (primaryErr) {
+            console.warn("Primary SMTP (port 465) failed, trying fallback (port 587)...", primaryErr.message);
+
+            // Attempt 2: Fallback to Port 587 STARTTLS
+            try {
+                const fallbackTransporter = nodemailer.createTransport({
+                    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                    port: 587,
+                    secure: false,
+                    family: 4,
+                    auth: {
+                        user: smtpUser,
+                        pass: smtpPass
+                    },
+                    connectionTimeout: 10000,
+                    greetingTimeout: 10000,
+                    socketTimeout: 15000
+                });
+
+                await fallbackTransporter.sendMail(mailOptions);
+                return res.json({ success: true, message: 'OTP sent to your email! (Please check your Inbox & Spam folder)' });
+            } catch (fallbackErr) {
+                console.error("Both SMTP connections failed:", fallbackErr.message);
+                return res.json({ 
+                    success: false, 
+                    message: `Failed to send OTP email (${fallbackErr.message}). Please try again.` 
+                });
+            }
         }
 
     } catch (error) {

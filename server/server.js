@@ -1,9 +1,15 @@
 import 'dotenv/config';
 import express from 'express'
 import cors from 'cors'
+import dns from 'dns'
 import userRouter from './routes/userRoutes.js';
 import connectDB from './configs/mongodb.js';
 import imageRouter from './routes/imageRoutes.js';
+
+// Force IPv4 for DNS lookup to prevent ENETUNREACH IPv6 errors
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 // App Config
 const PORT = process.env.PORT || 4000
