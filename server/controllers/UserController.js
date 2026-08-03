@@ -361,7 +361,8 @@ const sendResetOtp = async (req, res) => {
 
         // Support both naming conventions: SENDER_EMAIL/SENDER_PASSWORD and SMTP_USER/SMTP_PASS
         const smtpUser = process.env.SENDER_EMAIL || process.env.SMTP_USER;
-        const smtpPass = process.env.SENDER_PASSWORD || process.env.SMTP_PASS;
+        const rawPass = process.env.SENDER_PASSWORD || process.env.SMTP_PASS || '';
+        const smtpPass = rawPass.replace(/\s+/g, '');
 
         // If SMTP credentials are not configured, print to console and succeed
         if (!smtpUser || !smtpPass) {
@@ -381,14 +382,20 @@ const sendResetOtp = async (req, res) => {
                         auth: {
                             user: smtpUser,
                             pass: smtpPass
-                        }
+                        },
+                        connectionTimeout: 5000,
+                        greetingTimeout: 5000,
+                        socketTimeout: 8000
                       }
                     : {
                         service: 'gmail',
                         auth: {
                             user: smtpUser,
                             pass: smtpPass
-                        }
+                        },
+                        connectionTimeout: 5000,
+                        greetingTimeout: 5000,
+                        socketTimeout: 8000
                       }
             );
 
@@ -412,13 +419,18 @@ const sendResetOtp = async (req, res) => {
                 `
             };
 
-            await transporter.sendMail(mailOptions);
+            const sendMailPromise = transporter.sendMail(mailOptions);
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Email sending timed out. Check SMTP connection.')), 8000)
+            );
+
+            await Promise.race([sendMailPromise, timeoutPromise]);
             res.json({ success: true, message: 'OTP sent to your email successfully' });
         } catch (mailError) {
             console.error("Mail send error:", mailError.message);
             res.json({ 
                 success: true, 
-                message: 'OTP generated. Email send failed, please check server console log for the OTP code.' 
+                message: `OTP generated! Check your email or console log.` 
             });
         }
 
