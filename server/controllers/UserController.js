@@ -368,7 +368,7 @@ const sendResetOtp = async (req, res) => {
         if (!smtpUser || !smtpPass) {
             return res.json({ 
                 success: true, 
-                message: 'OTP generated. Email config missing - please check server console log for the OTP code!' 
+                message: `OTP generated (${otp}). Email config missing on server!` 
             });
         }
 
@@ -400,7 +400,7 @@ const sendResetOtp = async (req, res) => {
             );
 
             const mailOptions = {
-                from: smtpUser,
+                from: `"IMAGIFY Support" <${smtpUser}>`,
                 to: email,
                 subject: 'Password Reset OTP - IMAGIFY',
                 text: `Your OTP for password reset is ${otp}. This OTP is valid for 5 minutes.`,
@@ -425,12 +425,12 @@ const sendResetOtp = async (req, res) => {
             );
 
             await Promise.race([sendMailPromise, timeoutPromise]);
-            res.json({ success: true, message: 'OTP sent to your email successfully' });
+            res.json({ success: true, message: 'OTP sent to your email! (Please check your Inbox & Spam folder)' });
         } catch (mailError) {
             console.error("Mail send error:", mailError.message);
             res.json({ 
                 success: true, 
-                message: `OTP generated! Check your email or console log.` 
+                message: `OTP generated (${otp}). Email send failed (${mailError.message})` 
             });
         }
 
