@@ -379,6 +379,7 @@ const sendResetOtp = async (req, res) => {
                         host: process.env.SMTP_HOST,
                         port: Number(process.env.SMTP_PORT) || 587,
                         secure: process.env.SMTP_SECURE === 'true',
+                        family: 4,
                         auth: {
                             user: smtpUser,
                             pass: smtpPass
@@ -389,6 +390,7 @@ const sendResetOtp = async (req, res) => {
                       }
                     : {
                         service: 'gmail',
+                        family: 4,
                         auth: {
                             user: smtpUser,
                             pass: smtpPass
