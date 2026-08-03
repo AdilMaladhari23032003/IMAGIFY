@@ -11,6 +11,27 @@ if (dns.setDefaultResultOrder) {
     dns.setDefaultResultOrder('ipv4first');
 }
 
+// Helper: Force-resolve a hostname to an IPv4 address.
+// Nodemailer v9 ignores `family:4` and randomly picks IPv4/IPv6,
+// causing ENETUNREACH on hosts (like Render) that lack IPv6 outbound.
+const resolveToIPv4 = (hostname) => {
+    return new Promise((resolve, reject) => {
+        // First try dns.resolve4 (uses c-ares, faster)
+        dns.resolve4(hostname, (err, addresses) => {
+            if (!err && addresses && addresses.length) {
+                return resolve(addresses[0]);
+            }
+            // Fallback to dns.lookup with family:4 (uses OS resolver)
+            dns.lookup(hostname, { family: 4 }, (err2, address) => {
+                if (err2 || !address) {
+                    return reject(err2 || new Error(`Could not resolve ${hostname} to IPv4`));
+                }
+                resolve(address);
+            });
+        });
+    });
+};
+
 // API to register user
 const registerUser = async (req, res) => {
 
@@ -397,16 +418,29 @@ const sendResetOtp = async (req, res) => {
             `
         };
 
+        // Pre-resolve SMTP host to IPv4 to avoid Render IPv6 ENETUNREACH issue
+        const smtpHostname = process.env.SMTP_HOST || 'smtp.gmail.com';
+        let resolvedHost;
+        try {
+            resolvedHost = await resolveToIPv4(smtpHostname);
+            console.log(`[SMTP] Resolved ${smtpHostname} -> ${resolvedHost} (IPv4)`);
+        } catch (dnsErr) {
+            console.error(`[SMTP] DNS resolution failed for ${smtpHostname}:`, dnsErr.message);
+            return res.json({ success: false, message: 'Email service DNS error. Please try again.' });
+        }
+
         // Attempt 1: Port 465 SSL (Direct Secure Connection, fastest & bypasses ISP port 587 filters)
         try {
             const primaryTransporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                host: resolvedHost,
                 port: 465,
                 secure: true,
-                family: 4,
                 auth: {
                     user: smtpUser,
                     pass: smtpPass
+                },
+                tls: {
+                    servername: smtpHostname  // Use original hostname for TLS cert validation
                 },
                 connectionTimeout: 10000,
                 greetingTimeout: 10000,
@@ -421,13 +455,15 @@ const sendResetOtp = async (req, res) => {
             // Attempt 2: Fallback to Port 587 STARTTLS
             try {
                 const fallbackTransporter = nodemailer.createTransport({
-                    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                    host: resolvedHost,
                     port: 587,
                     secure: false,
-                    family: 4,
                     auth: {
                         user: smtpUser,
                         pass: smtpPass
+                    },
+                    tls: {
+                        servername: smtpHostname
                     },
                     connectionTimeout: 10000,
                     greetingTimeout: 10000,
