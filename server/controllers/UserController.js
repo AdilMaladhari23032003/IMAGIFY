@@ -364,11 +364,11 @@ const sendResetOtp = async (req, res) => {
         const rawPass = process.env.SENDER_PASSWORD || process.env.SMTP_PASS || '';
         const smtpPass = rawPass.replace(/\s+/g, '');
 
-        // If SMTP credentials are not configured, print to console and succeed
+        // If SMTP credentials are not configured, return error
         if (!smtpUser || !smtpPass) {
             return res.json({ 
-                success: true, 
-                message: `OTP generated (${otp}). Email config missing on server!` 
+                success: false, 
+                message: `Email sending configuration is missing on server!` 
             });
         }
 
@@ -383,9 +383,9 @@ const sendResetOtp = async (req, res) => {
                             user: smtpUser,
                             pass: smtpPass
                         },
-                        connectionTimeout: 5000,
-                        greetingTimeout: 5000,
-                        socketTimeout: 8000
+                        connectionTimeout: 15000,
+                        greetingTimeout: 15000,
+                        socketTimeout: 20000
                       }
                     : {
                         service: 'gmail',
@@ -393,9 +393,9 @@ const sendResetOtp = async (req, res) => {
                             user: smtpUser,
                             pass: smtpPass
                         },
-                        connectionTimeout: 5000,
-                        greetingTimeout: 5000,
-                        socketTimeout: 8000
+                        connectionTimeout: 15000,
+                        greetingTimeout: 15000,
+                        socketTimeout: 20000
                       }
             );
 
@@ -419,18 +419,13 @@ const sendResetOtp = async (req, res) => {
                 `
             };
 
-            const sendMailPromise = transporter.sendMail(mailOptions);
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Email sending timed out. Check SMTP connection.')), 8000)
-            );
-
-            await Promise.race([sendMailPromise, timeoutPromise]);
-            res.json({ success: true, message: 'OTP sent to your email! (Please check your Inbox & Spam folder)' });
+            await transporter.sendMail(mailOptions);
+            return res.json({ success: true, message: 'OTP sent to your email! (Please check your Inbox & Spam folder)' });
         } catch (mailError) {
             console.error("Mail send error:", mailError.message);
-            res.json({ 
-                success: true, 
-                message: `OTP generated (${otp}). Email send failed (${mailError.message})` 
+            return res.json({ 
+                success: false, 
+                message: `Failed to send OTP email (${mailError.message}). Please try again.` 
             });
         }
 
