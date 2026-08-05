@@ -573,6 +573,37 @@ const resetPassword = async (req, res) => {
     }
 }
 
+// API for Google Login
+const googleLogin = async (req, res) => {
+    try {
+        const { email, name, idToken } = req.body;
+
+        if (!email) {
+            return res.json({ success: false, message: 'Email is required' });
+        }
+
+        let user = await userModel.findOne({ email });
+
+        if (!user) {
+            // Create user if not exists
+            const userData = {
+                name: name || email.split('@')[0],
+                email,
+                password: '',
+            }
+            const newUser = new userModel(userData);
+            user = await newUser.save();
+        }
+
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.json({ success: true, token, user: { name: user.name } });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
 // API Controller function to get user transaction history
 const userTransactions = async (req, res) => {
     try {
@@ -585,4 +616,4 @@ const userTransactions = async (req, res) => {
     }
 }
 
-export { registerUser, loginUser, userCredits, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, sendResetOtp, resetPassword, userTransactions }
+export { registerUser, loginUser, googleLogin, userCredits, paymentRazorpay, verifyRazorpay, paymentStripe, verifyStripe, sendResetOtp, resetPassword, userTransactions }

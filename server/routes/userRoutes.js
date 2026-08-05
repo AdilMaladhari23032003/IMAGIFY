@@ -5,6 +5,7 @@ import {
     verifyRazorpay,
     registerUser,
     loginUser,
+    googleLogin,
     paymentStripe,
     verifyStripe,
     sendResetOtp,
@@ -17,6 +18,7 @@ const userRouter = express.Router()
 
 userRouter.post('/register', registerUser)
 userRouter.post('/login', loginUser)
+userRouter.post('/google-login', googleLogin)
 userRouter.get('/credits', authUser, userCredits)
 userRouter.get('/transactions', authUser, userTransactions)
 userRouter.post('/pay-razor', authUser, paymentRazorpay)
