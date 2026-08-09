@@ -32,6 +32,7 @@ const Login = () => {
             const { data } = await axios.post(backendUrl + '/api/auth/google-login', {
                 email: user.email,
                 name: user.displayName,
+                photoURL: user.photoURL,
                 idToken
             }, { timeout: 60000 })
 

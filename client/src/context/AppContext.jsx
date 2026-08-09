@@ -62,8 +62,14 @@ const AppContextProvider = (props) => {
 
     const logout = () => {
         localStorage.removeItem('token')
+        try {
+            localStorage.removeItem('history_images_cache')
+            localStorage.removeItem('history_trans_cache')
+        } catch (e) {}
         setToken('')
         setUser(null)
+        setCredit(0)
+        navigate('/')
     }
 
     useEffect(()=>{
